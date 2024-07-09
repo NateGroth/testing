@@ -1,27 +1,128 @@
-#include <Wire.h>
-#include <MPU6050.h>
+#include "I2Cdev.h"
+#include "MPU6050.h"
+#include "Wire.h"
 
-MPU6050 mpu;
+int buffersize=1000;    
+int acel_deadzone=8;     
+int giro_deadzone=1;     
 
-const int testIterations = 30;   // Number of times to repeat the test
-const int sampleRate = 100;      // Sampling rate in Hz
-const int testDuration = 5000;   // Duration of each test in milliseconds (5 seconds)
-float gyroCompensation[3][testIterations]; // Store compensation values for Gyro X, Y, Z
-float accelCompensation[3][testIterations]; // Store compensation values for Accel X, Y, Z
+
+MPU6050 accelgyro(0x68); 
+
+int16_t ax, ay, az,gx, gy, gz;
+
+int mean_ax,mean_ay,mean_az,mean_gx,mean_gy,mean_gz,state=0;
+int ax_offset,ay_offset,az_offset,gx_offset,gy_offset,gz_offset;
+int16_t gx, gy, gz, ax, ay, az;
+            
+
 
 void setup() {
-    Serial.begin(9600);
+    Serial.begin(115200);
     Wire.begin();
     mpu.initialize();
+    TWBR = 24;
 
     if (!mpu.testConnection()) {
         Serial.println("MPU6050 connection failed!");
-        while (1); // Halt if connection fails
+        while (1); 
     }
     Serial.println("MPU6050 connected successfully");
+
+    accelgyro.setXAccelOffset(0);
+    accelgyro.setYAccelOffset(0);
+    accelgyro.setZAccelOffset(0);
+    accelgyro.setXGyroOffset(0);
+    accelgyro.setYGyroOffset(0);
+    accelgyro.setZGyroOffset(0);
 }
 
 void loop() {
+  if (state==0){
+    Serial.println("\nReading sensors for first time...");
+    meansensors();
+    state++;
+    delay(1000);
+  }
+
+  if (state==1) {
+    Serial.println("\nCalculating offsets...");
+    calibration();
+    state++;
+    delay(1000);
+  }
+
+  if (state==2) {
+    meansensors();
+    Serial.println("\nFINISHED!");
+    Serial.print("\nSensor readings with offsets:\t");
+    Serial.print(mean_ax); 
+    Serial.print("\t");
+    Serial.print(mean_ay); 
+    Serial.print("\t");
+    Serial.print(mean_az); 
+    Serial.print("\t");
+    Serial.print(mean_gx); 
+    Serial.print("\t");
+    Serial.print(mean_gy); 
+    Serial.print("\t");
+    Serial.println(mean_gz);
+    Serial.print("Your offsets:\t");
+    Serial.print(ax_offset); 
+    Serial.print("\t");
+    Serial.print(ay_offset); 
+    Serial.print("\t");
+    Serial.print(az_offset); 
+    Serial.print("\t");
+    Serial.print(gx_offset); 
+    Serial.print("\t");
+    Serial.print(gy_offset); 
+    Serial.print("\t");
+    Serial.println(gz_offset); 
+    Serial.println("\nData is printed as: acelX acelY acelZ giroX giroY giroZ");
+    state++;
+  }
+
+  if (state==3) {
+    mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+    Serial.print("ax: "); Serial.print(ax);
+    Serial.print("ay: "); Serial.print(ay);
+    Serial.print("az: "); Serial.print(az);
+    Serial.print("gx: "); Serial.print(gx);
+    Serial.print("gy: "); Serial.print(gy);
+    Serial.print("gz: "); Serial.print(gz);
+    Serial.println("");
+  }
+}
+
+void meansensors(){
+  long i=0,buff_ax=0,buff_ay=0,buff_az=0,buff_gx=0,buff_gy=0,buff_gz=0;
+
+  while (i<(buffersize+101)){
+    accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+    
+    if (i>100 && i<=(buffersize+100)){ 
+      buff_ax=buff_ax+ax;
+      buff_ay=buff_ay+ay;
+      buff_az=buff_az+az;
+      buff_gx=buff_gx+gx;
+      buff_gy=buff_gy+gy;
+      buff_gz=buff_gz+gz;
+    }
+    if (i==(buffersize+100)){
+      mean_ax=buff_ax/buffersize;
+      mean_ay=buff_ay/buffersize;
+      mean_az=buff_az/buffersize;
+      mean_gx=buff_gx/buffersize;
+      mean_gy=buff_gy/buffersize;
+      mean_gz=buff_gz/buffersize;
+    }
+    i++;
+    delay(2);
+  }
+}
+
+void calibration(){
     for (int iteration = 0; iteration < testIterations; iteration++) {
         float gyroHigh[3] = {-10000, -10000, -10000}; // Initialize high values
         float gyroLow[3] = {10000, 10000, 10000};     // Initialize low values
@@ -63,25 +164,7 @@ void loop() {
             accelCompensation[i][iteration] = accelAvg; // Store compensation value for accel
         }
 
-        // Output the current compensation values to Serial
-        Serial.print("Iteration ");
-        Serial.print(iteration + 1);
-        Serial.print(": Gyro Comp X=");
-        Serial.print(gyroCompensation[0][iteration]);
-        Serial.print(", Y=");
-        Serial.print(gyroCompensation[1][iteration]);
-        Serial.print(", Z=");
-        Serial.print(gyroCompensation[2][iteration]);
-
-        Serial.print(" | Accel Comp X=");
-        Serial.print(accelCompensation[0][iteration]);
-        Serial.print(", Y=");
-        Serial.print(accelCompensation[1][iteration]);
-        Serial.print(", Z=");
-        Serial.println(accelCompensation[2][iteration]);
+        
     }
-
-    // Stop after running all iterations
-    Serial.println("Testing complete.");
-    while (1); // Halt the program after completing the tests
 }
+
