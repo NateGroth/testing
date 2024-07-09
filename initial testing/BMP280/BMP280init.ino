@@ -17,7 +17,7 @@ void setup() {
     // CHANGE THESE VALUES FOR DIFFERENT OVERSAMPLING RATES
     bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,
                     Adafruit_BMP280::SAMPLING_X16,    // Temperature oversampling
-                    Adafruit_BMP280::SAMPLING_X16,    // Pressure oversampling
+                    Adafruit_BMP280: :SAMPLING_X16,    // Pressure oversampling
                     Adafruit_BMP280::FILTER_X16,      // Filter coefficient
                     Adafruit_BMP280::STANDBY_MS_500); 
 
